@@ -16,26 +16,32 @@ class MessageDetails extends Struct({
     checkSum: Field,
 }) {
     static validate(msgDetails: MessageDetails) { 
-        //TODO Remove Assert and return Bool result
-        //TODO This is important to drop incorrect message rather than revert
+       
+        //TODO Serialize checks into a 5-bit field and deserialize if error logs are desired to be explicit
+        /**
+         * This function returns Bool result because it is important to drop incorrect message rather than revert
+         * and exit the process
+         */
         const validateNonAdmin = () => { 
             const agentId = msgDetails.agentId;
-            agentId.assertLessThanOrEqual(3000, "Invalid Agent ID!");
+            const idCheck = agentId.lessThanOrEqual(3000);
 
             const agentXLocation = msgDetails.agentXLocation;
-            agentXLocation.assertLessThanOrEqual(15000, "Invalid Agent XLocation!");
+            const xLocationCheck = agentXLocation.lessThanOrEqual(15000);
             
             const agentYLocation = msgDetails.agentYLocation;
             const yLocationCheck1 = agentYLocation.greaterThanOrEqual(5000);
             const yLocationCheck2 = agentYLocation.lessThanOrEqual(20000);
-            yLocationCheck1.and(yLocationCheck2).assertTrue("Invalid agent YLocation!");
+            const yLocationCheck = yLocationCheck1.and(yLocationCheck2);
 
-            agentYLocation.assertGreaterThan(agentXLocation, "Agent YLocation should be greater than XLocation!");
+            const xyCheck = agentYLocation.greaterThan(agentXLocation);
 
             const computedCheckSum = agentId.add(agentXLocation).add(agentYLocation);
-            computedCheckSum.assertEquals(msgDetails.checkSum, "Invalid Agent CheckSum!");
+            const checkSumCheck = computedCheckSum.equals(msgDetails.checkSum);
 
-            return Bool(true);
+            const isValid = idCheck.and(xLocationCheck).and(yLocationCheck).and(xyCheck).and(checkSumCheck);
+            
+            return isValid;
         }
         
         /**
@@ -50,7 +56,7 @@ class MessageDetails extends Struct({
             validateNonAdmin()
         );
 
-        isValid.assertTrue();
+        isValid.assertTrue('Invalid Message Details');
     }
 }
 
@@ -107,16 +113,17 @@ async function main() {
 
   console.log('generating message information');
 
-  //TODO: Fix validating message details to return bool removing assert
+  // agentId and invalid Message details should pass
   const message1 = {
     messageNumber: Field(6),
     messageDetails: new MessageDetails(
      {  
       agentId: Field(0),
       agentXLocation: Field(1000),
-      agentYLocation: Field(10000),
-      checkSum: Field(11000),
-     }),
+      agentYLocation: Field(500),
+      checkSum: Field(300),
+     }
+    ),
   }
 
   const message2 = {
@@ -131,6 +138,17 @@ async function main() {
   }
 
   const message3 = {
+    messageNumber: Field(7),
+    messageDetails: new MessageDetails(
+     {  
+      agentId: Field(800),
+      agentXLocation: Field(2200),
+      agentYLocation: Field(13000),
+      checkSum: Field(17000),
+     }),
+  }
+
+  const message4 = {
     messageNumber: Field(2),
     messageDetails: new MessageDetails(
      {  
@@ -141,14 +159,18 @@ async function main() {
      }),
   }
 
-  const messages = [message1, message2, message3];
+  const messages = [message1, message2, message3, message4];
   
   console.log('making first set of proofs');
 
   const messageProofs: Proof<Field, void>[] = [];
   for (let message of messages) {
-    const proof = await Batch.validateOneMessage(message.messageNumber, message.messageDetails);
-    messageProofs.push(proof);
+    try {
+      const proof = await Batch.validateOneMessage(message.messageNumber, message.messageDetails);
+      messageProofs.push(proof);
+    } catch (error) {
+      console.log(`❌ Dropped invalid message \x1b[33mNumber=${message.messageNumber.toBigInt().toString()}\x1b[0m`)
+    }
   }
 
   console.log('merging proofs');
@@ -160,7 +182,7 @@ async function main() {
     proof = mergedProof;
   }
 
-  console.log('verifying rollup');
+  console.log('verifying message batch');
   console.log(proof.publicInput.toString());
 
   const ok = await verify(proof.toJSON(), verificationKey);
