@@ -1,44 +1,52 @@
 import { Field, Struct, Bool, Provable, ZkProgram, SelfProof } from 'o1js';
 
-export { BatchValidator, MessageDetails };
+export { BatchValidator, MessageDetails, MessageBatchProof };
+
 class MessageDetails extends Struct({
   agentId: Field,
   agentXLocation: Field,
   agentYLocation: Field,
   checkSum: Field,
 }) {
-  static validate(msgDetails: MessageDetails) {
-    //TODO Serialize checks into a 5-bit field and deserialize if error logs are desired to be explicit
+  static validateNonAdmin(msgDetails: MessageDetails) {
     /**
      * This function returns Bool result because it is important to drop incorrect message rather than revert
      * and exit the process
      */
-    const validateNonAdmin = () => {
-      const agentId = msgDetails.agentId;
-      const idCheck = agentId.lessThanOrEqual(3000);
+    const agentId = msgDetails.agentId;
+    const idCheck = agentId.lessThanOrEqual(3000);
 
-      const agentXLocation = msgDetails.agentXLocation;
-      const xLocationCheck = agentXLocation.lessThanOrEqual(15000);
+    const agentXLocation = msgDetails.agentXLocation;
+    const xLocationCheck = agentXLocation.lessThanOrEqual(15000);
 
-      const agentYLocation = msgDetails.agentYLocation;
-      const yLocationCheck1 = agentYLocation.greaterThanOrEqual(5000);
-      const yLocationCheck2 = agentYLocation.lessThanOrEqual(20000);
-      const yLocationCheck = yLocationCheck1.and(yLocationCheck2);
+    const agentYLocation = msgDetails.agentYLocation;
+    const yLocationCheck1 = agentYLocation.greaterThanOrEqual(5000);
+    const yLocationCheck2 = agentYLocation.lessThanOrEqual(20000);
+    const yLocationCheck = yLocationCheck1.and(yLocationCheck2);
 
-      const xyCheck = agentYLocation.greaterThan(agentXLocation);
+    const xyCheck = agentYLocation.greaterThan(agentXLocation);
 
-      const computedCheckSum = agentId.add(agentXLocation).add(agentYLocation);
-      const checkSumCheck = computedCheckSum.equals(msgDetails.checkSum);
+    const computedCheckSum = agentId.add(agentXLocation).add(agentYLocation);
+    const checkSumCheck = computedCheckSum.equals(msgDetails.checkSum);
 
-      const isValid = idCheck
-        .and(xLocationCheck)
-        .and(yLocationCheck)
-        .and(xyCheck)
-        .and(checkSumCheck);
+    /**
+     * If all check boolean values are one then the checkField would validate the message details
+     * if it is equal to 31
+     * @note We can bitwise "and" all checks but this technique would allow explicit error handling after converting
+     *       fieldCheckt.toBits(5) and scanning which check failed .i.e Bool(false)
+     */
+    const checkField = Field.fromBits([
+      idCheck,
+      xLocationCheck,
+      yLocationCheck,
+      xyCheck,
+      checkSumCheck,
+    ]);
 
-      return isValid;
-    };
+    return checkField;
+  }
 
+  static validate(msgDetails: MessageDetails) {
     const isAdmin = msgDetails.agentId.equals(0);
     /**
      * If Agent ID is zero we don't need to check the other
@@ -46,7 +54,11 @@ class MessageDetails extends Struct({
      *
      * NOTE: The Provable.if API executes both expressions but selects one based on the the condition.
      */
-    const isValid = Provable.if(isAdmin, Bool(true), validateNonAdmin());
+    const isValid = Provable.if(
+      isAdmin,
+      Bool(true),
+      MessageDetails.validateNonAdmin(msgDetails).equals(31)
+    );
 
     isValid.assertTrue('Invalid Message Details');
   }
@@ -98,6 +110,8 @@ const BatchValidator = ZkProgram({
   },
 });
 
-//TODO Add tests for message validation
+let MessageBatchProof_ = ZkProgram.Proof(BatchValidator);
+class MessageBatchProof extends MessageBatchProof_ {}
+
 //TODO Add batch validator smart contract
 //TODO Add validator zkapp integration tests
