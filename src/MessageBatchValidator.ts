@@ -1,38 +1,37 @@
-import { 
-    SmartContract,
-    state,
-    State,
-    method,
-    Field,
-} from 'o1js';
-// import { MessageBatchProof } from "./batch";
+import { SmartContract, state, State, method, Field, Provable } from 'o1js';
+import { MessageBatchProof } from './zkProgram.js';
 
-// class MessageBatchValidatorContract extends SmartContract {
-//   @state(Field) state = State<Field>();
+export { MessageBatchValidatorZkApp };
+class MessageBatchValidatorZkApp extends SmartContract {
+  @state(Field) highestMessageNumber = State<Field>();
 
-//   deploy(args: DeployArgs) {
-//     super.deploy(args);
-//     this.account.permissions.set({
-//       ...Permissions.default(),
-//       editState: Permissions.proofOrSignature(),
-//     });
-//   }
+  @method initState() {
+    this.highestMessageNumber.set(Field(0));
+  }
 
-//   @method initStateRoot(stateRoot: Field) {
-//     this.state.set(stateRoot);
-//   }
+  @method update(messageBatchProof: MessageBatchProof) {
+    const currentHighestMessageNumber =
+      this.highestMessageNumber.getAndRequireEquals();
+    const batchMessageNumber = messageBatchProof.publicInput;
 
-//   @method update(rollupStateProof: MessageBatchProof) {
-//     const currentState = this.state.get();
-//     this.state.requireEquals(currentState);
+    /**
+     * Check if the message batch is not duplicate
+     * If the highest Message Number of the batch is less than the stored state then there is no
+     * need to verify the batch proof
+     */
+    const isNotDuplicate = batchMessageNumber.greaterThan(
+      currentHighestMessageNumber
+    );
 
-//     rollupStateProof.publicInput.initialRoot.assertEquals(currentState);
+    messageBatchProof.verifyIf(isNotDuplicate);
 
-//     rollupStateProof.verify();
+    const highestMessageNumber = Provable.if(
+      isNotDuplicate,
+      batchMessageNumber,
+      currentHighestMessageNumber
+    );
+    this.highestMessageNumber.set(highestMessageNumber);
+  }
+}
 
-//     this.state.set(rollupStateProof.publicInput.latestRoot);
-//   }
-// }
-
-//TODO add sth similar to fibonacci and add recursion example 
-//TODO add example and only validate following the challenge conditions 
+//TODO add example and only validate following the challenge conditions

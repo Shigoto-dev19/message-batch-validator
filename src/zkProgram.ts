@@ -113,5 +113,4 @@ const BatchValidator = ZkProgram({
 let MessageBatchProof_ = ZkProgram.Proof(BatchValidator);
 class MessageBatchProof extends MessageBatchProof_ {}
 
-//TODO Add batch validator smart contract
 //TODO Add validator zkapp integration tests
