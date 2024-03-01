@@ -9,7 +9,6 @@ import {
     verify,
 } from 'o1js';
 
-//TODO Add random valid message generator
 class MessageDetails extends Struct({
     agentId: Field,
     agentXLocation: Field,
@@ -17,7 +16,6 @@ class MessageDetails extends Struct({
     checkSum: Field,
 }) {
     static validate(msgDetails: MessageDetails) { 
-       
         //TODO Serialize checks into a 5-bit field and deserialize if error logs are desired to be explicit
         /**
          * This function returns Bool result because it is important to drop incorrect message rather than revert
@@ -79,36 +77,38 @@ const BatchValidator = ZkProgram({
 
           method(
               updatedMessageIdTracker: Field,
-              message1Proof: SelfProof<Field, void>,
-              message2Proof: SelfProof<Field, void>,
-          ) {
-              message1Proof.verify();
-              message2Proof.verify();
+              batchProof: SelfProof<Field, void>,
+              messageProof: SelfProof<Field, void>,
+          ) { 
+            const batchMessageNumber = batchProof.publicInput;
+            const messageNumber = messageProof.publicInput;
 
-              let message1Number = message1Proof.publicInput;
-              let message2Number = message2Proof.publicInput;
+            const isNotDuplicate = messageNumber.greaterThan(batchMessageNumber);
 
-              const updatedMessageId = Provable.if(
-                message1Number.greaterThan(message2Number),
-                message1Number,
-                message2Number,
-              );
+            // The batch proof should be verified in all cases
+            batchProof.verify();
 
-              updatedMessageId.assertEquals(updatedMessageIdTracker, "Failed to update message number ID");
-            }
+            // Skip verifying message details validity if the message is duplicate
+            messageProof.verifyIf(isNotDuplicate);
+
+            const updatedMessageId = Provable.if(
+              isNotDuplicate,
+              messageNumber,
+              batchMessageNumber,
+            );
+
+            updatedMessageId.assertEquals(updatedMessageIdTracker, "Failed to update message number ID");
+          }
         },
         
       }  
 });
 
-
-
 async function main() {
   function updateMessageNumber(message1Number: Field, message2Number: Field) {
-    const messageNumbers = [message1Number, message2Number].map(num => Number(num.toBigInt()))
-    const updatedMessageNumber = Math.max(...messageNumbers);
-
-    return Field(updatedMessageNumber);
+    return message1Number.toBigInt() > message2Number.toBigInt() 
+      ? message1Number 
+      : message2Number;
   }
 
   // Print batch ZkProgram summary
@@ -135,7 +135,7 @@ async function main() {
   }
 
   const message2 = {
-    messageNumber: Field(4),
+    messageNumber: Field(3),
     messageDetails: new MessageDetails(
      {  
       agentId: Field(1200),
@@ -145,6 +145,7 @@ async function main() {
      }),
   }
 
+  // invalid 
   const message3 = {
     messageNumber: Field(7),
     messageDetails: new MessageDetails(
@@ -157,7 +158,7 @@ async function main() {
   }
 
   const message4 = {
-    messageNumber: Field(2),
+    messageNumber: Field(6),
     messageDetails: new MessageDetails(
      {  
       agentId: Field(800),
@@ -178,7 +179,18 @@ async function main() {
      }),
   }
 
-  const messages = [message1, message2, message3, message4, message5];
+  const message2Duplicate = {
+    messageNumber: Field(3),
+    messageDetails: new MessageDetails(
+     {  
+      agentId: Field(1200),
+      agentXLocation: Field(1300),
+      agentYLocation: Field(12700),
+      checkSum: Field(15200),
+     }),
+  }
+
+  const messages = [message1, message2, message3, message4, message5, message2Duplicate];
   
   console.log('making first set of proofs');
 
@@ -194,20 +206,23 @@ async function main() {
 
   console.log('merging proofs');
 
-  let proof: Proof<Field, void> = messageProofs[0];
+  let batchProof: Proof<Field, void> = messageProofs[0];
   for (let i=1; i<messageProofs.length; i++) {
-    const updatedMessageIdTracker = updateMessageNumber(proof.publicInput, messageProofs[i].publicInput);
-    let mergedProof = await BatchValidator.mergeMessage(updatedMessageIdTracker, proof, messageProofs[i]);
-    proof = mergedProof;
+    const updatedMessageIdTracker = updateMessageNumber(batchProof.publicInput, messageProofs[i].publicInput);
+    let mergedProof = await BatchValidator.mergeMessage(updatedMessageIdTracker, batchProof, messageProofs[i]);
+    batchProof = mergedProof;
   }
 
   console.log('verifying message batch');
-  console.log(proof.publicInput.toString());
+  console.log(batchProof.publicInput.toString());
 
-  const ok = await verify(proof.toJSON(), verificationKey);
+  const ok = await verify(batchProof.toJSON(), verificationKey);
   console.log('ok', ok);
 }
 
-
-
 main();
+
+//TODO Add tests for message validation
+//TODO Add random valid message generator
+//TODO Add batch validator smart contract
+//TODO Add validator zkapp integration tests 
