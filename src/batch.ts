@@ -1,5 +1,4 @@
 import { Field, Struct, Bool, Provable, ZkProgram, SelfProof } from 'o1js';
-import { generateRandomMessage } from './utils.js';
 
 export { BatchValidator, MessageDetails };
 class MessageDetails extends Struct({
@@ -100,6 +99,5 @@ const BatchValidator = ZkProgram({
 });
 
 //TODO Add tests for message validation
-//TODO Add random valid message generator
 //TODO Add batch validator smart contract
 //TODO Add validator zkapp integration tests

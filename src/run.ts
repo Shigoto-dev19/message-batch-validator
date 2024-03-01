@@ -1,5 +1,6 @@
 import { Field, Proof, verify } from 'o1js';
 import { BatchValidator, MessageDetails } from './batch.js';
+import { generateRandomMessage } from './utils.js';
 
 async function main() {
   function updateMessageNumber(message1Number: Field, message2Number: Field) {
@@ -18,32 +19,15 @@ async function main() {
     BatchValidator.analyzeMethods().mergeMessage.summary()
   );
 
-  console.log('\ncompiling...');
-
+  console.log('\ncompiling...\n');
   const { verificationKey } = await BatchValidator.compile();
 
-  console.log('generating message information');
+  console.log('generating message information\n');
 
   // The agent is Admin(agentId=0) and invalid Message details should pass
-  const message1 = {
-    messageNumber: Field(6),
-    messageDetails: new MessageDetails({
-      agentId: Field(0),
-      agentXLocation: Field(1000),
-      agentYLocation: Field(500),
-      checkSum: Field(300),
-    }),
-  };
+  const message1= generateRandomMessage(Field(6), true);
 
-  const message2 = {
-    messageNumber: Field(3),
-    messageDetails: new MessageDetails({
-      agentId: Field(1200),
-      agentXLocation: Field(1300),
-      agentYLocation: Field(12700),
-      checkSum: Field(15200),
-    }),
-  };
+  const message2 = generateRandomMessage(Field(3));
 
   // invalid
   const message3 = {
@@ -56,35 +40,11 @@ async function main() {
     }),
   };
 
-  const message4 = {
-    messageNumber: Field(6),
-    messageDetails: new MessageDetails({
-      agentId: Field(800),
-      agentXLocation: Field(2200),
-      agentYLocation: Field(13000),
-      checkSum: Field(16000),
-    }),
-  };
+  const message4 = generateRandomMessage(Field(6));
 
-  const message5 = {
-    messageNumber: Field(10),
-    messageDetails: new MessageDetails({
-      agentId: Field(2500),
-      agentXLocation: Field(100),
-      agentYLocation: Field(6000),
-      checkSum: Field(8600),
-    }),
-  };
+  const message5 = generateRandomMessage(Field(10));
 
-  const message2Duplicate = {
-    messageNumber: Field(3),
-    messageDetails: new MessageDetails({
-      agentId: Field(1200),
-      agentXLocation: Field(1300),
-      agentYLocation: Field(12700),
-      checkSum: Field(15200),
-    }),
-  };
+  const message2Duplicate = generateRandomMessage(Field(3));
 
   const messages = [
     message1,
@@ -95,7 +55,7 @@ async function main() {
     message2Duplicate,
   ];
 
-  console.log('making first set of proofs');
+  console.log('making first set of proofs\n');
 
   const messageProofs: Proof<Field, void>[] = [];
   for (let message of messages) {
@@ -114,7 +74,7 @@ async function main() {
     }
   }
 
-  console.log('merging proofs');
+  console.log('\nmerging proofs...\n');
 
   let batchProof: Proof<Field, void> = messageProofs[0];
   for (let i = 1; i < messageProofs.length; i++) {
@@ -130,13 +90,10 @@ async function main() {
     batchProof = mergedProof;
   }
 
-  console.log('verifying message batch');
-  console.log(batchProof.publicInput.toString());
-
-  console.log('max proofs verified: ', batchProof.maxProofsVerified);
+  console.log('Highest message number processed: ', batchProof.publicInput.toString());
 
   const ok = await verify(batchProof.toJSON(), verificationKey);
-  console.log('ok', ok);
+  console.log('\nmessage batch proof verifies to ', ok);
 }
 
 main();
