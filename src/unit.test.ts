@@ -94,11 +94,11 @@ describe('Message Details Validation Tests', () => {
   });
 
   it('should return valid for randomly generated message details: 10000 iterations', () => {
-    for(let i=0; i<10000; i++) {
-        let messageDetails = generateRandomValidMessageDetails();
-        let checkField = MessageDetails.validateNonAdmin(messageDetails);
-        
-        expect(checkField).toEqual(Field(31));
+    for (let i = 0; i < 10000; i++) {
+      let messageDetails = generateRandomValidMessageDetails();
+      let checkField = MessageDetails.validateNonAdmin(messageDetails);
+
+      expect(checkField).toEqual(Field(31));
     }
   });
 });

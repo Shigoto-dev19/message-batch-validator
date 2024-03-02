@@ -20,8 +20,8 @@ async function main() {
 
   // The agent is Admin(agentId=0) and invalid Message details should pass
   const message1 = generateRandomMessage(Field(6), true);
-  
-  // Invalid message 
+
+  // Invalid message
   const message2 = {
     messageNumber: Field(5),
     messageDetails: new MessageDetails({
@@ -32,7 +32,7 @@ async function main() {
     }),
   };
 
-  // Invalid message 
+  // Invalid message
   const message3 = {
     messageNumber: Field(7),
     messageDetails: new MessageDetails({
@@ -43,7 +43,7 @@ async function main() {
     }),
   };
 
-  // Invalid message 
+  // Invalid message
   const message4 = {
     messageNumber: Field(233),
     messageDetails: new MessageDetails({

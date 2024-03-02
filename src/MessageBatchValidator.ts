@@ -31,8 +31,7 @@ class MessageBatchValidatorZkApp extends SmartContract {
       batchMessageNumber,
       currentHighestMessageNumber
     );
-    
+
     this.highestMessageNumber.set(highestMessageNumber);
   }
 }
-

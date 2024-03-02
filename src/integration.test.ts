@@ -1,12 +1,6 @@
-import {
-    Field, 
-    Mina,
-    AccountUpdate,
-    PrivateKey,
-    PublicKey,
-} from 'o1js';
+import { Field, Mina, AccountUpdate, PrivateKey, PublicKey } from 'o1js';
 
-import { MessageBatchValidatorZkApp } from "./MessageBatchValidator";
+import { MessageBatchValidatorZkApp } from './MessageBatchValidator';
 import { generateMessageBatchProof } from './utils';
 import { BatchValidator } from './zkProgram';
 
@@ -14,106 +8,114 @@ const proofsEnabled = false;
 
 // These tests can take around 5-6 minutes
 describe('MessageBatchValidator ZkApp integration Tests', () => {
-    let proverKey: PrivateKey,
+  let proverKey: PrivateKey,
     proverAddress: PublicKey,
     zkappAddress: PublicKey,
     zkappPrivateKey: PrivateKey,
     zkapp: MessageBatchValidatorZkApp;
-    
-    beforeAll(async () => {
-      if (proofsEnabled) {
-        await MessageBatchValidatorZkApp.compile();
-      }
 
-      await BatchValidator.compile();
+  beforeAll(async () => {
+    if (proofsEnabled) {
+      await MessageBatchValidatorZkApp.compile();
+    }
 
-      // Set up local blockchain
-      const Local = Mina.LocalBlockchain({ proofsEnabled });
-      Mina.setActiveInstance(Local);
-  
-      // Local.testAccounts is an array of 10 test accounts that have been pre-filled with Mina
-      proverKey = Local.testAccounts[0].privateKey;
-      proverAddress = Local.testAccounts[0].publicKey;
+    await BatchValidator.compile();
 
-      // Set up the zkapp account
-      zkappPrivateKey = PrivateKey.random();
-      zkappAddress = zkappPrivateKey.toPublicKey();
-      zkapp = new MessageBatchValidatorZkApp(zkappAddress);
+    // Set up local blockchain
+    const Local = Mina.LocalBlockchain({ proofsEnabled });
+    Mina.setActiveInstance(Local);
+
+    // Local.testAccounts is an array of 10 test accounts that have been pre-filled with Mina
+    proverKey = Local.testAccounts[0].privateKey;
+    proverAddress = Local.testAccounts[0].publicKey;
+
+    // Set up the zkapp account
+    zkappPrivateKey = PrivateKey.random();
+    zkappAddress = zkappPrivateKey.toPublicKey();
+    zkapp = new MessageBatchValidatorZkApp(zkappAddress);
+  });
+
+  it('Deploy `MessageBatchValidator` zkApp', async () => {
+    const tx = await Mina.transaction(proverAddress, () => {
+      AccountUpdate.fundNewAccount(proverAddress);
+      zkapp.deploy();
     });
 
-    it('Deploy `MessageBatchValidator` zkApp', async () => {
-        const tx = await Mina.transaction(proverAddress, () => {
-            AccountUpdate.fundNewAccount(proverAddress);
-            zkapp.deploy();
-        });
-        
-        await tx.prove();
-        await tx.sign([proverKey, zkappPrivateKey]).send();
-    });
-    
-    it('Initialize `MessageBatchValidator` zkApp state', async () => {
-        const initTx = await Mina.transaction(proverAddress, () => {
-            zkapp.initState();
-        });
+    await tx.prove();
+    await tx.sign([proverKey, zkappPrivateKey]).send();
+  });
 
-        await initTx.prove();
-        await initTx.sign([proverKey]).send();
-
-        const initState = zkapp.highestMessageNumber.get();
-        expect(initState).toEqual(Field(0));
+  it('Initialize `MessageBatchValidator` zkApp state', async () => {
+    const initTx = await Mina.transaction(proverAddress, () => {
+      zkapp.initState();
     });
 
-    it('Should accept message batch and update state', async () => {
-        const batchSize = 2;
-        const maxMessageNumberRange = 50;
+    await initTx.prove();
+    await initTx.sign([proverKey]).send();
 
-        const batch1Proof = await generateMessageBatchProof(batchSize, maxMessageNumberRange);
-        const updateTx = await Mina.transaction(proverAddress, () => {
-            zkapp.update(batch1Proof);
-        });
+    const initState = zkapp.highestMessageNumber.get();
+    expect(initState).toEqual(Field(0));
+  });
 
-        await updateTx.prove();
-        await updateTx.sign([proverKey]).send();
+  it('Should accept message batch and update state', async () => {
+    const batchSize = 2;
+    const maxMessageNumberRange = 50;
 
-        const updatedState = zkapp.highestMessageNumber.get();
-        expect(updatedState).toEqual(batch1Proof.publicInput);
-
+    const batch1Proof = await generateMessageBatchProof(
+      batchSize,
+      maxMessageNumberRange
+    );
+    const updateTx = await Mina.transaction(proverAddress, () => {
+      zkapp.update(batch1Proof);
     });
 
-    it('Should accept message batch and not update the state', async () => {
-        const batchSize = 2;
-        const maxMessageNumberRange = 8;
+    await updateTx.prove();
+    await updateTx.sign([proverKey]).send();
 
-        // Fetch state before sending the update transaction
-        const storedState = zkapp.highestMessageNumber.get();
+    const updatedState = zkapp.highestMessageNumber.get();
+    expect(updatedState).toEqual(batch1Proof.publicInput);
+  });
 
-        const batch2Proof = await generateMessageBatchProof(batchSize, maxMessageNumberRange);
-        const updateTx = await Mina.transaction(proverAddress, () => {
-            zkapp.update(batch2Proof);
-        });
+  it('Should accept message batch and not update the state', async () => {
+    const batchSize = 2;
+    const maxMessageNumberRange = 8;
 
-        await updateTx.prove();
-        await updateTx.sign([proverKey]).send();
+    // Fetch state before sending the update transaction
+    const storedState = zkapp.highestMessageNumber.get();
 
-        // Fetch the state after sending the update transaction
-        const updatedState = zkapp.highestMessageNumber.get()
-    
-        expect(updatedState).toEqual(storedState);
+    const batch2Proof = await generateMessageBatchProof(
+      batchSize,
+      maxMessageNumberRange
+    );
+    const updateTx = await Mina.transaction(proverAddress, () => {
+      zkapp.update(batch2Proof);
     });
-    
-    it('should accept a different batch and update state', async () => {
-        const batchSize = 4;
-        const maxMessageNumberRange = 1000;
 
-        const batch3Proof = await generateMessageBatchProof(batchSize, maxMessageNumberRange);
-        const updateTx = await Mina.transaction(proverAddress, () => {
-            zkapp.update(batch3Proof);
-        });
+    await updateTx.prove();
+    await updateTx.sign([proverKey]).send();
 
-        await updateTx.prove();
-        await updateTx.sign([proverKey]).send();
+    // Fetch the state after sending the update transaction
+    const updatedState = zkapp.highestMessageNumber.get();
 
-        const updatedState = zkapp.highestMessageNumber.get();
-        expect(updatedState).toEqual(batch3Proof.publicInput);
+    expect(updatedState).toEqual(storedState);
+  });
+
+  it('should accept a different batch and update state', async () => {
+    const batchSize = 4;
+    const maxMessageNumberRange = 1000;
+
+    const batch3Proof = await generateMessageBatchProof(
+      batchSize,
+      maxMessageNumberRange
+    );
+    const updateTx = await Mina.transaction(proverAddress, () => {
+      zkapp.update(batch3Proof);
     });
+
+    await updateTx.prove();
+    await updateTx.sign([proverKey]).send();
+
+    const updatedState = zkapp.highestMessageNumber.get();
+    expect(updatedState).toEqual(batch3Proof.publicInput);
+  });
 });

@@ -1,7 +1,7 @@
 import { Field, Proof } from 'o1js';
 import { BatchValidator, MessageDetails } from './zkProgram.js';
 
-export { 
+export {
   generateRandomValidMessageDetails,
   generateRandomMessage,
   generateMessageBatchProof,
@@ -19,7 +19,7 @@ function generateRandomNumber(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function generateRandomMessageNumber(max=10000): Field {
+function generateRandomMessageNumber(max = 10000): Field {
   return Field(generateRandomNumber(1, max));
 }
 
@@ -47,7 +47,7 @@ function generateRandomMessage(messageNumber: Field, fromAdmin = false) {
   };
 }
 
-async function generateRandomValidMessageProof(maxMessageNumber?: number) { 
+async function generateRandomValidMessageProof(maxMessageNumber?: number) {
   const messageNumber = generateRandomMessageNumber(maxMessageNumber);
   const message = generateRandomMessage(messageNumber);
   const messageProof = await BatchValidator.validateOneMessage(
@@ -55,11 +55,16 @@ async function generateRandomValidMessageProof(maxMessageNumber?: number) {
     message.messageDetails
   );
 
-  return messageProof
+  return messageProof;
 }
 
-async function generateMessageBatchProof(batchSize: number, maxMessageNumber?: number) { 
-  let batchProof: Proof<Field, void> = await generateRandomValidMessageProof(maxMessageNumber);
+async function generateMessageBatchProof(
+  batchSize: number,
+  maxMessageNumber?: number
+) {
+  let batchProof: Proof<Field, void> = await generateRandomValidMessageProof(
+    maxMessageNumber
+  );
   for (let i = 1; i < batchSize; i++) {
     let messageProof = await generateRandomValidMessageProof(maxMessageNumber);
     let updatedMessageNumber = updateMessageNumber(
@@ -70,7 +75,7 @@ async function generateMessageBatchProof(batchSize: number, maxMessageNumber?: n
     let mergedProof = await BatchValidator.mergeMessage(
       updatedMessageNumber,
       batchProof,
-      messageProof,
+      messageProof
     );
     batchProof = mergedProof;
   }
