@@ -2,6 +2,7 @@ import { SmartContract, state, State, method, Field, Provable } from 'o1js';
 import { MessageBatchProof } from './zkProgram.js';
 
 export { MessageBatchValidatorZkApp };
+
 class MessageBatchValidatorZkApp extends SmartContract {
   @state(Field) highestMessageNumber = State<Field>();
 
@@ -30,8 +31,8 @@ class MessageBatchValidatorZkApp extends SmartContract {
       batchMessageNumber,
       currentHighestMessageNumber
     );
+    
     this.highestMessageNumber.set(highestMessageNumber);
   }
 }
 
-//TODO add example and only validate following the challenge conditions

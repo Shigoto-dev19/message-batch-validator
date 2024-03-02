@@ -1,14 +1,8 @@
 import { Field, Proof, verify } from 'o1js';
-import { BatchValidator, MessageDetails } from './batch.js';
-import { generateRandomMessage } from './utils.js';
+import { BatchValidator, MessageDetails } from './zkProgram.js';
+import { generateRandomMessage, updateMessageNumber } from './utils.js';
 
 async function main() {
-  function updateMessageNumber(message1Number: Field, message2Number: Field) {
-    return message1Number.toBigInt() > message2Number.toBigInt()
-      ? message1Number
-      : message2Number;
-  }
-
   // Print batch ZkProgram summary
   console.log(
     'ZkProgram validateOneMessage summary:',
@@ -25,11 +19,20 @@ async function main() {
   console.log('generating message information\n');
 
   // The agent is Admin(agentId=0) and invalid Message details should pass
-  const message1= generateRandomMessage(Field(6), true);
+  const message1 = generateRandomMessage(Field(6), true);
+  
+  // Invalid message 
+  const message2 = {
+    messageNumber: Field(5),
+    messageDetails: new MessageDetails({
+      agentId: Field(800),
+      agentXLocation: Field(1200),
+      agentYLocation: Field(13000),
+      checkSum: Field(17000),
+    }),
+  };
 
-  const message2 = generateRandomMessage(Field(3));
-
-  // invalid
+  // Invalid message 
   const message3 = {
     messageNumber: Field(7),
     messageDetails: new MessageDetails({
@@ -40,11 +43,22 @@ async function main() {
     }),
   };
 
-  const message4 = generateRandomMessage(Field(6));
+  // Invalid message 
+  const message4 = {
+    messageNumber: Field(233),
+    messageDetails: new MessageDetails({
+      agentId: Field(800),
+      agentXLocation: Field(2200),
+      agentYLocation: Field(13000),
+      checkSum: Field(17000),
+    }),
+  };
 
-  const message5 = generateRandomMessage(Field(10));
+  const message5 = generateRandomMessage(Field(7));
 
-  const message2Duplicate = generateRandomMessage(Field(3));
+  const message1Duplicate = generateRandomMessage(Field(3));
+
+  const message6 = generateRandomMessage(Field(19));
 
   const messages = [
     message1,
@@ -52,7 +66,8 @@ async function main() {
     message3,
     message4,
     message5,
-    message2Duplicate,
+    message1Duplicate,
+    message6,
   ];
 
   console.log('making first set of proofs\n');
@@ -78,19 +93,22 @@ async function main() {
 
   let batchProof: Proof<Field, void> = messageProofs[0];
   for (let i = 1; i < messageProofs.length; i++) {
-    const updatedMessageIdTracker = updateMessageNumber(
+    const updatedMessageNumber = updateMessageNumber(
       batchProof.publicInput,
       messageProofs[i].publicInput
     );
     let mergedProof = await BatchValidator.mergeMessage(
-      updatedMessageIdTracker,
+      updatedMessageNumber,
       batchProof,
       messageProofs[i]
     );
     batchProof = mergedProof;
   }
 
-  console.log('Highest message number processed: ', batchProof.publicInput.toString());
+  console.log(
+    'Highest message number processed: ',
+    batchProof.publicInput.toString()
+  );
 
   const ok = await verify(batchProof.toJSON(), verificationKey);
   console.log('\nmessage batch proof verifies to ', ok);

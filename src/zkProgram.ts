@@ -64,6 +64,7 @@ class MessageDetails extends Struct({
   }
 }
 
+//TODO make merge process more than one message proof
 const BatchValidator = ZkProgram({
   name: 'message-batch-validator',
   publicInput: Field,
@@ -112,5 +113,3 @@ const BatchValidator = ZkProgram({
 
 let MessageBatchProof_ = ZkProgram.Proof(BatchValidator);
 class MessageBatchProof extends MessageBatchProof_ {}
-
-//TODO Add validator zkapp integration tests

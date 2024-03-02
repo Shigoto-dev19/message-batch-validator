@@ -1,5 +1,6 @@
 import { Field, Bool } from 'o1js';
-import { MessageDetails } from './batch';
+import { MessageDetails } from './zkProgram';
+import { generateRandomValidMessageDetails } from './utils';
 
 // Unit tests for Message Details Validation
 describe('Message Details Validation Tests', () => {
@@ -68,7 +69,7 @@ describe('Message Details Validation Tests', () => {
     expect(checkSumCheck).toEqual(Bool(false));
   });
 
-  it('should return valid for agent ID is zero', () => {
+  it('should return valid for agent ID is zero(admin)', () => {
     const messageDetails = new MessageDetails({
       agentId: Field(0),
       agentXLocation: Field(5000),
@@ -90,5 +91,14 @@ describe('Message Details Validation Tests', () => {
     const isValid = () => MessageDetails.validate(messageDetails);
 
     expect(isValid).toThrow();
+  });
+
+  it('should return valid for randomly generated message details: 10000 iterations', () => {
+    for(let i=0; i<10000; i++) {
+        let messageDetails = generateRandomValidMessageDetails();
+        let checkField = MessageDetails.validateNonAdmin(messageDetails);
+        
+        expect(checkField).toEqual(Field(31));
+    }
   });
 });
