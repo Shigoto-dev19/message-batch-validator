@@ -106,7 +106,7 @@ async function main() {
   }
 
   console.log(
-    'Highest message number processed: ',
+    'highest message number processed: ',
     batchProof.publicInput.toString()
   );
 
